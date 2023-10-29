@@ -17,6 +17,10 @@
 		return needResize;
 	}
 	const canvas = ref<HTMLCanvasElement | null>(null);
+	const fov = 75;
+	const aspect = 2; // the canvas default
+	const near = 0.1;
+	const far = 100;
 
 	onMounted(() => {
 		// checks whether the canvas exists
@@ -24,17 +28,14 @@
 			throw new Error('CANVAS ELEMENT DOES NOT EXIST');
 		}
 
-		// rederer
+		// renderer
 		const renderer = new THREE.WebGLRenderer({
 			antialias: true,
 			canvas: canvas.value,
 		});
 
 		// camera
-		const fov = 75;
-		const aspect = 2; // the canvas default
-		const near = 0.1;
-		const far = 100;
+
 		const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
 
 		//camera position
@@ -52,6 +53,7 @@
 
 		//shape
 		const geo = new THREE.PlaneGeometry(35, 35, 30, 30);
+
 		const shapeMaterial = new THREE.ShaderMaterial({
 			wireframe: true,
 			side: THREE.DoubleSide,
@@ -65,17 +67,8 @@
 			fragmentShader: fragment,
 		});
 
-		// uniform variables
-		const canvasSize = new THREE.Vector2(
-			canvas.value?.width,
-			canvas.value?.height
-		);
-
-		console.log(canvasSize);
-
-		shapeMaterial.uniforms.u_resolution.value.copy(canvasSize);
-
 		const shapeMesh = new THREE.Mesh(geo, shapeMaterial);
+
 		scene.add(shapeMesh);
 
 		// renderer
@@ -105,6 +98,7 @@
 			// update time from the fragment shader
 			shapeMaterial.uniforms.time.value += 0.01;
 
+			// update resolution from the fragment shader
 			if (canvas.value == null) {
 				throw new Error('CANVAS DOES NOT EXIST');
 			}
