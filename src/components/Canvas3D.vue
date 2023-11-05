@@ -1,11 +1,16 @@
 <script setup lang="ts">
+	// three
 	import * as THREE from 'three';
 	import fragment from '../shaders/fragment.frag';
 	import vertex from '../shaders/vertex.glsl';
 	import vertexParticles from '../shaders/vertexParticles.glsl';
+	import fragmentSimulation from '../shaders/fragmentSimulation.glsl';
+	import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js';
+	// vue
 	import { onMounted } from 'vue';
 	import { ref } from 'vue';
 
+	// resize renderer to display size
 	function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
 		const canvas = renderer.domElement;
 		const pixelRatio = window.devicePixelRatio;
@@ -17,11 +22,50 @@
 		}
 		return needResize;
 	}
+
+	// init GPGPU
+	function initGPGPU(renderer: THREE.WebGLRenderer) {
+		const gpuCompute = new GPUComputationRenderer(WIDTH, WIDTH, renderer);
+		const dtPosition = gpuCompute.createTexture();
+
+		fillPosition(dtPosition);
+
+		const positionVariable = gpuCompute.addVariable(
+			'texturePosition',
+			fragmentSimulation,
+			dtPosition
+		);
+
+		positionVariable.material.uniforms['time'] = { value: 0.0 };
+		positionVariable.wrapS = THREE.RepeatWrapping;
+		positionVariable.wrapT = THREE.RepeatWrapping;
+
+		console.log(gpuCompute);
+		console.log(positionVariable);
+		gpuCompute.init();
+	}
+
+	function fillPosition(dtPosition: THREE.DataTexture) {
+		let arr: Uint8ClampedArray = dtPosition.image.data;
+		console.log(arr);
+		for (let i = 0; i < arr.length; i = i + 4) {
+			let x = Math.random() * 2 - 1;
+			let y = Math.random() * 2 - 1;
+			let z = Math.random() * 2 - 1;
+			arr[i] = x;
+			arr[i + 1] = y;
+			arr[i + 2] = z;
+			arr[i + 3] = 1;
+		}
+	}
+
 	const canvas = ref<HTMLCanvasElement | null>(null);
 	const fov = 75;
 	const aspect = 2; // the canvas default
 	const near = 0.1;
 	const far = 100;
+
+	const WIDTH = 32;
 
 	onMounted(() => {
 		// checks whether the canvas exists
@@ -36,7 +80,7 @@
 		});
 		// camera
 		const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-		camera.position.z = 30;
+		camera.position.z = 2;
 		//scene
 		const scene = new THREE.Scene();
 		// light
@@ -47,7 +91,7 @@
 		scene.add(light);
 
 		//shape
-		const geo = new THREE.PlaneGeometry(35, 35, 30, 30);
+		const geo = new THREE.PlaneGeometry(1, 1, 1, 10);
 		const shapeMaterial = new THREE.ShaderMaterial({
 			// wireframe: true,
 			side: THREE.DoubleSide,
@@ -69,6 +113,9 @@
 
 		// time
 		const clock = new THREE.Clock();
+
+		// gpgpu stuff
+		initGPGPU(renderer);
 
 		// animation
 		function render() {
