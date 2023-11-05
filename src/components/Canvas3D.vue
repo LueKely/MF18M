@@ -2,6 +2,7 @@
 	import * as THREE from 'three';
 	import fragment from '../shaders/fragment.frag';
 	import vertex from '../shaders/vertex.glsl';
+	import vertexParticles from '../shaders/vertexParticles.glsl';
 	import { onMounted } from 'vue';
 	import { ref } from 'vue';
 
@@ -33,17 +34,11 @@
 			antialias: true,
 			canvas: canvas.value,
 		});
-
 		// camera
-
 		const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-
-		//camera position
 		camera.position.z = 30;
-
 		//scene
 		const scene = new THREE.Scene();
-
 		// light
 		const color = 0xffffff;
 		const intensity = 3;
@@ -53,21 +48,19 @@
 
 		//shape
 		const geo = new THREE.PlaneGeometry(35, 35, 30, 30);
-
 		const shapeMaterial = new THREE.ShaderMaterial({
-			wireframe: true,
+			// wireframe: true,
 			side: THREE.DoubleSide,
 			uniforms: {
 				u_resolution: {
 					value: new THREE.Vector2(),
-				}, // This will be automatically set by Three.js
+				},
 				time: { value: 0.0 }, // Initialize time to 0
 			},
-			vertexShader: vertex,
+			vertexShader: vertexParticles,
 			fragmentShader: fragment,
 		});
-
-		const shapeMesh = new THREE.Mesh(geo, shapeMaterial);
+		const shapeMesh = new THREE.Points(geo, shapeMaterial);
 
 		scene.add(shapeMesh);
 
