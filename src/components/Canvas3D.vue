@@ -1,11 +1,13 @@
 <script setup lang="ts">
 	// three
 	import * as THREE from 'three';
+	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 	import fragment from '../shaders/fragment.frag';
 	import vertex from '../shaders/vertex.glsl';
 	import vertexParticles from '../shaders/vertexParticles.glsl';
 	import fragmentSimulation from '../shaders/fragmentSimulation.glsl';
 	import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer.js';
+
 	// vue
 	import { onMounted } from 'vue';
 	import { ref } from 'vue';
@@ -21,6 +23,21 @@
 			renderer.setSize(width, height, false);
 		}
 		return needResize;
+	}
+
+	// fill position texture
+	function fillPosition(dtPosition: THREE.DataTexture) {
+		let arr: Uint8ClampedArray = dtPosition.image.data;
+		for (let i = 0; i < arr.length; i = i + 4) {
+			let x = Math.random() * 2 - 1;
+			let y = Math.random() * 2 - 1;
+			let z = Math.random() * 2 - 1;
+			arr[i] = x;
+			arr[i + 1] = y;
+			arr[i + 2] = z;
+			arr[i + 3] = 1;
+		}
+		console.log(arr);
 	}
 
 	// init GPGPU
@@ -43,20 +60,7 @@
 		console.log(gpuCompute);
 		console.log(positionVariable);
 		gpuCompute.init();
-	}
-
-	function fillPosition(dtPosition: THREE.DataTexture) {
-		let arr: Uint8ClampedArray = dtPosition.image.data;
-		console.log(arr);
-		for (let i = 0; i < arr.length; i = i + 4) {
-			let x = Math.random() * 2 - 1;
-			let y = Math.random() * 2 - 1;
-			let z = Math.random() * 2 - 1;
-			arr[i] = x;
-			arr[i + 1] = y;
-			arr[i + 2] = z;
-			arr[i + 3] = 1;
-		}
+		gpuCompute.compute();
 	}
 
 	const canvas = ref<HTMLCanvasElement | null>(null);
@@ -78,11 +82,15 @@
 			antialias: true,
 			canvas: canvas.value,
 		});
+
 		// camera
 		const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-		camera.position.z = 2;
+		camera.position.z = 3;
+
 		//scene
 		const scene = new THREE.Scene();
+		scene.background = new THREE.Color(0xffffff); // Set the background color to red
+
 		// light
 		const color = 0xffffff;
 		const intensity = 3;
@@ -90,8 +98,27 @@
 		light.position.set(-1, 2, 4);
 		scene.add(light);
 
+		// position particles
+		let positions = new Float32Array(WIDTH * WIDTH * 3);
+		let reference = new Float32Array(WIDTH * WIDTH * 2);
+
+		for (let i = 0; i < WIDTH * WIDTH; i++) {
+			let x = Math.random();
+			let y = Math.random();
+			let z = Math.random();
+
+			let xx = (i % WIDTH) / WIDTH;
+			let yy = Math.floor(i / WIDTH) / WIDTH;
+
+			positions.set([x, y, z], i * 3);
+			reference.set([xx, yy], i * 2);
+		}
+
+		console.log(positions);
+		console.log(reference);
+
 		//shape
-		const geo = new THREE.PlaneGeometry(1, 1, 1, 10);
+		const geo = new THREE.BufferGeometry();
 		const shapeMaterial = new THREE.ShaderMaterial({
 			// wireframe: true,
 			side: THREE.DoubleSide,
@@ -99,11 +126,16 @@
 				u_resolution: {
 					value: new THREE.Vector2(),
 				},
+				posistionTexture: { value: null },
 				time: { value: 0.0 }, // Initialize time to 0
 			},
 			vertexShader: vertexParticles,
 			fragmentShader: fragment,
 		});
+
+		geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+		geo.setAttribute('reference', new THREE.BufferAttribute(reference, 2));
+
 		const shapeMesh = new THREE.Points(geo, shapeMaterial);
 
 		scene.add(shapeMesh);
@@ -117,8 +149,13 @@
 		// gpgpu stuff
 		initGPGPU(renderer);
 
+		// controls
+		const controls = new OrbitControls(camera, renderer.domElement);
+
 		// animation
 		function render() {
+			controls.update();
+
 			const deltaTime = clock.getDelta();
 			// resizes the display
 
@@ -147,6 +184,9 @@
 				canvas.value.height
 			);
 			shapeMaterial.uniforms.u_resolution.value.copy(resolution);
+			// shapeMaterial.uniforms.posistionTexture.value = gpuCompute.getCurrentRenderTarget(
+			// 	positionVariable
+			// ).texture;
 		}
 		requestAnimationFrame(render);
 	});
@@ -158,7 +198,7 @@
 
 <style scoped>
 	#c {
-		/* background-color: #494545; */
+		background-color: red;
 		width: 100dvw;
 		height: 100dvh;
 		display: block;
