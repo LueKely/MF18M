@@ -5,6 +5,7 @@ precision mediump float;
 
 uniform float time;
 uniform float delta;
+uniform sampler2D texturePosition;
 
 	void main()	{
 
@@ -12,6 +13,6 @@ uniform float delta;
 		vec4 tmpPos = texture2D( texturePosition, uv );
 		vec3 position = tmpPos.xyz;
 
-		gl_FragColor = vec4( position + vec3(0.001) * delta * 15. , phase );
+		gl_FragColor = vec4( position + vec3(0.001) , 1. );
 
 			}

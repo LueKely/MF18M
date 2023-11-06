@@ -40,29 +40,6 @@
 		console.log(arr);
 	}
 
-	// init GPGPU
-	function initGPGPU(renderer: THREE.WebGLRenderer) {
-		const gpuCompute = new GPUComputationRenderer(WIDTH, WIDTH, renderer);
-		const dtPosition = gpuCompute.createTexture();
-
-		fillPosition(dtPosition);
-
-		const positionVariable = gpuCompute.addVariable(
-			'texturePosition',
-			fragmentSimulation,
-			dtPosition
-		);
-
-		positionVariable.material.uniforms['time'] = { value: 0.0 };
-		positionVariable.wrapS = THREE.RepeatWrapping;
-		positionVariable.wrapT = THREE.RepeatWrapping;
-
-		console.log(gpuCompute);
-		console.log(positionVariable);
-		gpuCompute.init();
-		gpuCompute.compute();
-	}
-
 	const canvas = ref<HTMLCanvasElement | null>(null);
 	const fov = 75;
 	const aspect = 2; // the canvas default
@@ -113,9 +90,9 @@
 			positions.set([x, y, z], i * 3);
 			reference.set([xx, yy], i * 2);
 		}
-
-		console.log(positions);
-		console.log(reference);
+		// Debugging perposes
+		// console.log(positions);
+		// console.log(reference);
 
 		//shape
 		const geo = new THREE.BufferGeometry();
@@ -133,6 +110,13 @@
 			fragmentShader: fragment,
 		});
 
+		// material uniforms setup (dont delete)
+		const resolution = new THREE.Vector2(
+			canvas.value.width,
+			canvas.value.height
+		);
+		shapeMaterial.uniforms.u_resolution.value.copy(resolution);
+
 		geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 		geo.setAttribute('reference', new THREE.BufferAttribute(reference, 2));
 
@@ -147,13 +131,34 @@
 		const clock = new THREE.Clock();
 
 		// gpgpu stuff
-		initGPGPU(renderer);
+		const gpuCompute = new GPUComputationRenderer(WIDTH, WIDTH, renderer);
+		const dtPosition = gpuCompute.createTexture();
+
+		fillPosition(dtPosition);
+
+		const positionVariable = gpuCompute.addVariable(
+			'texturePosition',
+			fragmentSimulation,
+			dtPosition
+		);
+
+		positionVariable.material.uniforms['time'] = { value: 0.0 };
+		positionVariable.wrapS = THREE.RepeatWrapping;
+		positionVariable.wrapT = THREE.RepeatWrapping;
+
+		// console.log(gpuCompute);
+		// console.log(positionVariable);
+		gpuCompute.init();
 
 		// controls
 		const controls = new OrbitControls(camera, renderer.domElement);
 
 		// animation
 		function render() {
+			// gpuCompute.init();
+			gpuCompute.compute();
+			// console.log(gpuCompute.getCurrentRenderTarget(positionVariable).texture);
+
 			controls.update();
 
 			const deltaTime = clock.getDelta();
@@ -184,9 +189,8 @@
 				canvas.value.height
 			);
 			shapeMaterial.uniforms.u_resolution.value.copy(resolution);
-			// shapeMaterial.uniforms.posistionTexture.value = gpuCompute.getCurrentRenderTarget(
-			// 	positionVariable
-			// ).texture;
+			shapeMaterial.uniforms.posistionTexture.value =
+				gpuCompute.getCurrentRenderTarget(positionVariable).texture;
 		}
 		requestAnimationFrame(render);
 	});
